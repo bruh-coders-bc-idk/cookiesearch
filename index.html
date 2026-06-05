@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>cookie search</title>
+
+<style>
+body{
+    background:#111;
+    color:#fff;
+    font-family:arial,sans-serif;
+    margin:0;
+    text-transform:lowercase;
+}
+
+.home{
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+    justify-content:center;
+    align-items:center;
+}
+
+h1{
+    font-size:4rem;
+}
+
+input{
+    width:min(700px,90vw);
+    padding:15px;
+    border:none;
+    border-radius:30px;
+    background:#222;
+    color:white;
+    font-size:18px;
+}
+
+.results{
+    max-width:900px;
+    margin:auto;
+    padding:20px;
+}
+
+.result{
+    padding:15px;
+    margin:20px 0;
+    background:#1a1a1a;
+    border-radius:12px;
+}
+
+.result a{
+    color:#7db8ff;
+    text-decoration:none;
+}
+
+.result img{
+    width:18px;
+    height:18px;
+    vertical-align:middle;
+    margin-right:8px;
+}
+</style>
+</head>
+<body>
+
+<div id="app"></div>
+
+<script>
+const app = document.getElementById("app");
+const query = new URLSearchParams(location.search).get("q");
+
+if(!query){
+    app.innerHTML = `
+    <div class="home">
+        <h1>cookie search</h1>
+        <form>
+            <input name="q" placeholder="search">
+        </form>
+    </div>`;
+}else{
+    app.innerHTML = `
+    <div class="results">
+        <h1>cookie search</h1>
+        <form>
+            <input name="q" value="${query}">
+        </form>
+        <div id="results">loading...</div>
+    </div>`;
+
+    search(query);
+}
+
+async function search(q){
+    try{
+
+        const res = await fetch(
+            "https://search.bus-hit.me/search?q="
+            + encodeURIComponent(q)
+            + "&format=json"
+        );
+
+        const data = await res.json();
+
+        const container = document.getElementById("results");
+
+        if(!data.results?.length){
+            container.innerHTML = "no results found";
+            return;
+        }
+
+        container.innerHTML = data.results.map(r=>{
+
+            let host = "";
+
+            try{
+                host = new URL(r.url).hostname;
+            }catch{}
+
+            return `
+            <div class="result">
+
+                <div>
+                    <img src="https://www.google.com/s2/favicons?domain=${host}&sz=64">
+                    ${host}
+                </div>
+
+                <h3>
+                    <a href="${r.url}" target="_blank">
+                        ${r.title}
+                    </a>
+                </h3>
+
+                <p>${r.content || ""}</p>
+
+            </div>
+            `;
+        }).join("");
+
+    }catch(err){
+        document.getElementById("results").innerHTML =
+        "search api unavailable";
+    }
+}
+</script>
+
+</body>
+</html>
