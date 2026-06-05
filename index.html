@@ -1,147 +1,182 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>cookie search</title>
+<title>cookie browser</title>
 
 <style>
-body{
-    background:#111;
-    color:#fff;
-    font-family:arial,sans-serif;
+*{
+    box-sizing:border-box;
     margin:0;
-    text-transform:lowercase;
+    padding:0;
+    font-family:system-ui,sans-serif;
 }
 
-.home{
+body{
+    background:#111;
+    color:white;
     height:100vh;
     display:flex;
     flex-direction:column;
-    justify-content:center;
-    align-items:center;
 }
 
-h1{
-    font-size:4rem;
+.toolbar{
+    background:#1b1b1b;
+    padding:10px;
+    display:flex;
+    gap:8px;
 }
 
-input{
-    width:min(700px,90vw);
-    padding:15px;
-    border:none;
-    border-radius:30px;
+#url{
+    flex:1;
     background:#222;
+    border:none;
     color:white;
-    font-size:18px;
+    padding:10px;
+    border-radius:8px;
 }
 
-.results{
-    max-width:900px;
-    margin:auto;
+button{
+    background:#333;
+    color:white;
+    border:none;
+    padding:10px 14px;
+    border-radius:8px;
+}
+
+.tabs{
+    display:flex;
+    overflow-x:auto;
+    background:#181818;
+}
+
+.tab{
+    padding:10px 14px;
+    background:#222;
+    border-right:1px solid #333;
+    cursor:pointer;
+    white-space:nowrap;
+}
+
+.tab.active{
+    background:#444;
+}
+
+.viewer{
+    flex:1;
+    position:relative;
+}
+
+iframe{
+    width:100%;
+    height:100%;
+    border:none;
+    background:white;
+}
+
+.message{
+    position:absolute;
+    inset:0;
+    display:none;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
     padding:20px;
-}
-
-.result{
-    padding:15px;
-    margin:20px 0;
-    background:#1a1a1a;
-    border-radius:12px;
-}
-
-.result a{
-    color:#7db8ff;
-    text-decoration:none;
-}
-
-.result img{
-    width:18px;
-    height:18px;
-    vertical-align:middle;
-    margin-right:8px;
+    color:#bbb;
 }
 </style>
 </head>
 <body>
 
-<div id="app"></div>
+<div class="toolbar">
+    <input id="url" placeholder="enter a website url">
+    <button onclick="go()">go</button>
+    <button onclick="newTab()">+</button>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="viewer">
+    <iframe id="frame"></iframe>
+    <div class="message" id="message">
+        this site may not allow embedding in iframes.
+    </div>
+</div>
 
 <script>
-const app = document.getElementById("app");
-const query = new URLSearchParams(location.search).get("q");
-
-if(!query){
-    app.innerHTML = `
-    <div class="home">
-        <h1>cookie search</h1>
-        <form>
-            <input name="q" placeholder="search">
-        </form>
-    </div>`;
-}else{
-    app.innerHTML = `
-    <div class="results">
-        <h1>cookie search</h1>
-        <form>
-            <input name="q" value="${query}">
-        </form>
-        <div id="results">loading...</div>
-    </div>`;
-
-    search(query);
-}
-
-async function search(q){
-    try{
-
-        const res = await fetch(
-            "https://search.bus-hit.me/search?q="
-            + encodeURIComponent(q)
-            + "&format=json"
-        );
-
-        const data = await res.json();
-
-        const container = document.getElementById("results");
-
-        if(!data.results?.length){
-            container.innerHTML = "no results found";
-            return;
-        }
-
-        container.innerHTML = data.results.map(r=>{
-
-            let host = "";
-
-            try{
-                host = new URL(r.url).hostname;
-            }catch{}
-
-            return `
-            <div class="result">
-
-                <div>
-                    <img src="https://www.google.com/s2/favicons?domain=${host}&sz=64">
-                    ${host}
-                </div>
-
-                <h3>
-                    <a href="${r.url}" target="_blank">
-                        ${r.title}
-                    </a>
-                </h3>
-
-                <p>${r.content || ""}</p>
-
-            </div>
-            `;
-        }).join("");
-
-    }catch(err){
-        document.getElementById("results").innerHTML =
-        "search api unavailable";
+let tabs = [
+    {
+        title:"new tab",
+        url:"https://example.org"
     }
+];
+
+let activeTab = 0;
+
+function renderTabs(){
+    const el = document.getElementById("tabs");
+
+    el.innerHTML = tabs.map((tab,index)=>`
+        <div
+            class="tab ${index===activeTab?'active':''}"
+            onclick="switchTab(${index})">
+            ${tab.title}
+        </div>
+    `).join("");
 }
+
+function switchTab(index){
+    activeTab = index;
+    loadTab();
+}
+
+function newTab(){
+    tabs.push({
+        title:"new tab",
+        url:"https://example.org"
+    });
+
+    activeTab = tabs.length - 1;
+    loadTab();
+}
+
+function normalizeUrl(url){
+    if(!/^https?:\/\//i.test(url)){
+        return "https://" + url;
+    }
+    return url;
+}
+
+function go(){
+    const input = document.getElementById("url");
+
+    tabs[activeTab].url = normalizeUrl(input.value);
+    tabs[activeTab].title = input.value;
+
+    loadTab();
+}
+
+function loadTab(){
+    renderTabs();
+
+    const tab = tabs[activeTab];
+
+    document.getElementById("url").value = tab.url;
+
+    const frame = document.getElementById("frame");
+    const msg = document.getElementById("message");
+
+    msg.style.display = "none";
+
+    frame.src = tab.url;
+
+    setTimeout(()=>{
+        msg.style.display = "flex";
+    },4000);
+}
+
+loadTab();
 </script>
 
 </body>
